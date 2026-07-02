@@ -1,7 +1,12 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: "*" } });
+const io = require('socket.io')(http, { 
+    cors: { 
+        origin: "*",
+        methods: ["GET", "POST"]
+    } 
+});
 
 app.use(express.static('public'));
 
@@ -107,6 +112,7 @@ io.on('connection', (socket) => {
         let topCard = room.discardPile[room.discardPile.length - 1];
         let playedCard = data.card;
 
+        // Geçerli kart hamlesi kontrolü
         if (playedCard.color === topCard.color || playedCard.value === topCard.value || playedCard.color === 'black') {
             
             let cardIndex = activePlayer.cards.findIndex(c => c.color === playedCard.color && c.value === playedCard.value);
@@ -126,6 +132,7 @@ io.on('connection', (socket) => {
 
             if (playedCard.color === 'black') {
                 room.pendingColorChange = true;
+                sendStateToAll(data.roomCode); // Durumu güncelle ki frontend butonları kilitlesin
                 socket.emit('chooseColor', { value: playedCard.value });
                 return; 
             }
@@ -135,10 +142,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Renk Seçimi Sonrası
+    // 5. Renk Seçimi Sonrası
     socket.on('colorSelected', (data) => {
         let room = rooms[data.roomCode];
         if (!room || !room.pendingColorChange) return;
+
+        // Güvenlik kontrolü: Rengi sadece sırası gelen oyuncu seçebilir
+        let activePlayer = room.players[room.currentTurn];
+        if (activePlayer.id !== socket.id) return;
 
         let topCard = room.discardPile[room.discardPile.length - 1];
         topCard.color = data.color; 
@@ -147,7 +158,10 @@ io.on('connection', (socket) => {
         if (topCard.value === '+4') {
             let nextTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
             let victim = room.players[nextTurn];
-            for(let i=0; i<4; i++) if(room.deck.length > 0) victim.cards.push(room.deck.pop());
+            for(let i=0; i<4; i++) {
+                if(room.deck.length === 0) recycleDeck(room);
+                if(room.deck.length > 0) victim.cards.push(room.deck.pop());
+            }
             room.currentTurn = (nextTurn + room.direction + room.players.length) % room.players.length;
         } else {
             room.currentTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
@@ -156,7 +170,7 @@ io.on('connection', (socket) => {
         sendStateToAll(data.roomCode);
     });
 
-    // Kart Çekme
+    // 6. Kart Çekme
     socket.on('drawCard', (roomCode) => {
         let room = rooms[roomCode];
         if (!room || !room.started || room.pendingColorChange) return;
@@ -165,9 +179,7 @@ io.on('connection', (socket) => {
         if (activePlayer.id !== socket.id) return;
 
         if (room.deck.length === 0) {
-            let topCard = room.discardPile.pop();
-            room.deck = room.discardPile.sort(() => Math.random() - 0.5);
-            room.discardPile = [topCard];
+            recycleDeck(room);
         }
 
         if (room.deck.length > 0) {
@@ -178,38 +190,54 @@ io.on('connection', (socket) => {
         sendStateToAll(roomCode);
     });
 
-    // Odadan Çıkma
+    // 7. Odadan Çıkma ve Bağlantı Kopması
     socket.on('leaveRoom', (roomCode) => {
-        if(rooms[roomCode]) {
-            rooms[roomCode].players = rooms[roomCode].players.filter(p => p.id !== socket.id);
-            io.to(roomCode).emit('playerJoined', { players: rooms[roomCode].players });
-            if(rooms[roomCode].players.length === 0 || rooms[roomCode].host === socket.id) {
-                delete rooms[roomCode];
-            }
-        }
-        socket.leave(roomCode);
-        socket.emit('leftRoom');
+        handlePlayerLeave(socket, roomCode);
     });
 
     socket.on('disconnect', () => {
         for (let code in rooms) {
-            let room = rooms[code];
-            let pIndex = room.players.findIndex(p => p.id === socket.id);
+            let pIndex = rooms[code].players.findIndex(p => p.id === socket.id);
             if (pIndex > -1) {
-                room.players.splice(pIndex, 1);
-                io.to(code).emit('playerJoined', { players: room.players });
-                if (room.players.length === 0 || room.host === socket.id) {
-                    delete rooms[code];
-                }
+                handlePlayerLeave(socket, code);
                 break;
             }
         }
     });
 });
 
+function recycleDeck(room) {
+    if (room.discardPile.length > 1) {
+        let topCard = room.discardPile.pop();
+        room.deck = room.discardPile.sort(() => Math.random() - 0.5);
+        room.discardPile = [topCard];
+    }
+}
+
+function handlePlayerLeave(socket, roomCode) {
+    let room = rooms[roomCode];
+    if(!room) return;
+
+    room.players = room.players.filter(p => p.id !== socket.id);
+    io.to(roomCode).emit('playerJoined', { players: room.players });
+    
+    if(room.players.length === 0 || room.host === socket.id) {
+        io.to(roomCode).emit('errorMsg', 'Host odadan ayrıldığı için oda kapatıldı.');
+        delete rooms[roomCode];
+    }
+    socket.leave(roomCode);
+    socket.emit('leftRoom');
+}
+
 function processCardAction(room, playedCard) {
     if (playedCard.value === 'Reverse') {
         room.direction *= -1;
+        if(room.players.length === 2) {
+            // 2 kişilik oyunda Reverse kartı tıpkı Skip gibi çalışır, sıra yine atanda kalır
+            let nextTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
+            room.currentTurn = nextTurn;
+            return;
+        }
     }
     let nextTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
 
@@ -217,7 +245,10 @@ function processCardAction(room, playedCard) {
         nextTurn = (nextTurn + room.direction + room.players.length) % room.players.length;
     } else if (playedCard.value === '+2') {
         let victim = room.players[nextTurn];
-        for(let i=0; i<2; i++) if(room.deck.length > 0) victim.cards.push(room.deck.pop());
+        for(let i=0; i<2; i++) {
+            if(room.deck.length === 0) recycleDeck(room);
+            if(room.deck.length > 0) victim.cards.push(room.deck.pop());
+        }
         nextTurn = (nextTurn + room.direction + room.players.length) % room.players.length;
     }
     room.currentTurn = nextTurn;
@@ -236,12 +267,13 @@ function sendStateToAll(roomCode) {
             myCards: player.cards,
             opponents: opponents,
             discardPile: room.discardPile,
-            isMyTurn: room.currentTurn === index && !room.pendingColorChange,
+            isMyTurn: room.currentTurn === index,
             currentTurnName: room.players[room.currentTurn].name,
-            pendingColorChange: room.pendingColorChange
+            pendingColorChange: room.pendingColorChange,
+            activeColorChooserId: room.players[room.currentTurn].id
         });
     });
 }
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Sunucu aktif.`));
+http.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
