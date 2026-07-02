@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNO Arena - Canlı Oda</title>
+    <title>UNO Arena - Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -13,98 +13,98 @@
         .active { display: flex; }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen font-sans flex flex-col justify-between">
+<body class="text-slate-100 min-h-screen font-sans flex flex-col justify-between select-none">
 
-    <!-- 1. GİRİŞ VE LOBİ MENÜSÜ EKRANI -->
+    <!-- 1. LOBİ GİRİŞ EKRANI -->
     <div id="lobbyScreen" class="screen active flex-col items-center justify-center my-auto px-6 text-center w-full max-w-4xl mx-auto">
-        <!-- Navigasyon Taklidi Başlık -->
-        <div class="flex items-center gap-3 mb-12">
-            <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider select-none">UNO</div>
+        <div class="flex items-center gap-3 mb-8">
+            <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider">UNO</div>
             <span class="text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">ARENA</span>
         </div>
         <h1 class="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight">
             Kartları Akıllıca Oyna, <br>
             <span class="bg-gradient-to-r from-purple-400 via-pink-500 to-amber-500 bg-clip-text text-transparent">Titan Unvanını Kazan!</span>
         </h1>
-        <p class="text-slate-400 text-base md:text-lg mb-10 max-w-xl mx-auto">
-            4 kişilik acımasız UNO arenalarında yerinizi alın. Kodunuzu paylaşın arkadaşlarınız katılsın. Kimin Usta kimin Bronz olduğunu sahada gösterelim!
-        </p>
         <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 w-full max-w-md mx-auto shadow-2xl backdrop-blur-md">
-            <button onclick="createRoom()" class="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform hover:-translate-y-0.5 mb-6">
+            <button onclick="createRoom()" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform hover:-translate-y-0.5 mb-6">
                 <i class="fas fa-plus mr-2"></i> Yeni Oda Oluştur
             </button>
             <div class="flex items-center my-4">
                 <div class="flex-grow h-px bg-slate-800"></div>
-                <span class="px-3 text-xs text-slate-500 font-bold uppercase">Veya Odaya Gir</span>
+                <span class="px-3 text-xs text-slate-500 font-bold">VEYA</span>
                 <div class="flex-grow h-px bg-slate-800"></div>
             </div>
             <div class="flex gap-2">
-                <input type="text" id="roomInput" placeholder="Oda Kodunu Yapıştır" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-amber-400 uppercase tracking-widest font-bold focus:outline-none focus:border-amber-500">
+                <input type="text" id="roomInput" placeholder="Oda Kodu Gir" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-amber-400 uppercase tracking-widest font-bold focus:outline-none">
                 <button onclick="joinRoom()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl border border-slate-700 transition">Katıl</button>
             </div>
         </div>
     </div>
 
-    <!-- 2. BEKLEME SALONU EKRANI (LOBİ) -->
+    <!-- 2. BEKLEME SALONU -->
     <div id="roomScreen" class="screen flex-col items-center justify-center my-auto px-6 w-full max-w-md mx-auto text-center">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md">
-            <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Davet Kodu</p>
-            <h2 class="text-4xl font-black text-amber-400 tracking-widest mb-6 select-all" id="displayCode">-</h2>
-            
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md relative">
+            <button onclick="leaveRoom()" class="absolute top-4 right-4 text-slate-500 hover:text-red-500 text-sm font-bold transition"><i class="fas fa-sign-out-alt"></i> Çık</button>
+            <p class="text-xs text-slate-500 font-bold uppercase mb-1">Oda Kodu</p>
+            <h2 class="text-4xl font-black text-amber-400 tracking-widest mb-6" id="displayCode">-</h2>
             <div class="h-px bg-slate-800 my-4"></div>
-            
             <h3 class="text-sm font-semibold text-slate-400 mb-3 text-left flex justify-between">
-                <span>Bağlı Oyuncular</span>
-                <span id="playerCount" class="text-amber-500">0/4</span>
+                <span>Oyuncular</span><span id="playerCount" class="text-amber-500">0/4</span>
             </h3>
             <ul id="playerList" class="space-y-2 text-left mb-8"></ul>
-
-            <button id="startBtn" onclick="startGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform hover:-translate-y-0.5" style="display:none;">
-                <i class="fas fa-play mr-2"></i> Oyunu Başlat
-            </button>
-            <p id="waitMsg" class="text-sm text-slate-400 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>Oda sahibinin oyunu başlatması bekleniyor...</p>
+            <button id="startBtn" onclick="startGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl" style="display:none;">Oyunu Başlat (Host)</button>
+            <p id="waitMsg" class="text-sm text-slate-400 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>Hostun oyunu başlatması bekleniyor...</p>
         </div>
     </div>
 
-    <!-- 3. CANLI OYUN ARENASI EKRANI -->
-    <div id="gameScreen" class="screen flex-col justify-between h-screen w-full p-4">
-        <!-- ÜST PANEL: RAKİPLER VE SIRA -->
-        <div class="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg">
-            <div id="opponents" class="flex gap-3 overflow-x-auto">
-                <!-- Rakipler dinamik yüklenecek -->
-            </div>
-            <div class="text-amber-400 font-bold tracking-wider text-xs md:text-sm whitespace-nowrap bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                SIRA: <span id="turn-indicator" class="text-white">Yükleniyor...</span>
-            </div>
-        </div>
-
-        <!-- ORTA PANEL: ORTAKİ KART -->
-        <div class="flex flex-col items-center justify-center my-auto">
-            <p class="text-xs text-slate-500 mb-3 font-bold uppercase tracking-wider">Ortadaki Kart</p>
-            <div id="last-card" class="w-28 h-40 md:w-32 md:h-48 rounded-2xl border-4 border-white flex items-center justify-center text-3xl md:text-4xl font-black shadow-2xl select-none transition-all duration-300">
-                -
+    <!-- 3. CANLI OYUN ARENASI -->
+    <div id="gameScreen" class="screen flex-col justify-between h-screen w-full p-4 relative">
+        
+        <!-- ÜST BAR: RAKİPLER, SIRA VE ODADAN ÇIKMA -->
+        <div class="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg z-10">
+            <div id="opponents" class="flex gap-3 overflow-x-auto"></div>
+            <div class="flex items-center gap-4">
+                <div class="text-amber-400 font-bold tracking-wider text-xs md:text-sm bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                    SIRA: <span id="turn-indicator" class="text-white">...</span>
+                </div>
+                <button onclick="leaveRoom()" class="bg-red-950 hover:bg-red-800 text-red-400 border border-red-900 px-3 py-1.5 rounded-lg text-xs font-bold transition"><i class="fas fa-door-open"></i> Çık</button>
             </div>
         </div>
 
-        <!-- ALT PANEL: SENİN ELİN -->
-        <div class="bg-slate-900/80 backdrop-blur-md p-4 md:p-6 rounded-2xl border border-slate-800 max-w-4xl mx-auto w-full shadow-2xl mb-2">
-            <div class="flex justify-between items-center mb-4">
-                <span class="text-xs md:text-sm font-semibold text-slate-400 flex items-center gap-2">
+        <!-- ORTA ALAN: ORTAKİ KART VE RENK SEÇİM PANELİ -->
+        <div class="flex flex-col items-center justify-center my-auto relative w-full">
+            <p class="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Ortadaki Kart</p>
+            <div id="last-card" class="w-32 h-48 rounded-2xl border-4 border-white flex items-center justify-center text-4xl font-black shadow-2xl transition-all duration-300"></div>
+
+            <!-- DİNAMİK RENK SEÇİM POPUP'I (+4 VEYA JOKER ATILDIĞINDA AÇILIR) -->
+            <div id="colorPicker" class="absolute bg-slate-900/95 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 hidden z-50 animate-bounce">
+                <h3 class="text-sm font-black tracking-widest text-amber-400">UNO! RENGİNİ SEÇ</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="selectColor('red')" class="w-16 h-16 bg-red-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
+                    <button onclick="selectColor('blue')" class="w-16 h-16 bg-blue-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
+                    <button onclick="selectColor('green')" class="w-16 h-16 bg-green-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
+                    <button onclick="selectColor('yellow')" class="w-16 h-16 bg-yellow-500 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALT ALAN: GENİŞLETİLMİŞ VE UZATILMIŞ SLOTLAR (SENİN ELİN) -->
+        <div class="bg-slate-900/90 backdrop-blur-md p-6 rounded-2xl border border-slate-800 max-w-5xl mx-auto w-full shadow-2xl mb-2">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+                <span class="text-sm font-semibold text-slate-400 flex items-center gap-2">
                     <i class="fas fa-id-badge text-indigo-500"></i> Senin Elin <span class="text-xs bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full font-bold">Efsane Lig</span>
                 </span>
-                <button id="drawBtn" onclick="drawCard()" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 px-4 py-2 rounded-lg font-bold text-xs shadow-md active:scale-95 transition-all">
-                    KART ÇEK (+1)
-                </button>
+                <button id="drawBtn" onclick="drawCard()" class="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all">KART ÇEK (+1)</button>
             </div>
             
-            <!-- Senin Kartların Listesi -->
-            <div id="my-hand" class="flex gap-2 overflow-x-auto pb-3 justify-start md:justify-center min-h-[140px] px-2 items-end">
-                <!-- Kartlar buraya dolacak -->
+            <!-- DAHA BÜYÜK, DAHA DERİN VE UZUN KART SLOT ALANI -->
+            <div id="my-hand" class="flex gap-3 overflow-x-auto pb-4 pt-6 justify-start md:justify-center min-h-[200px] px-4 items-end items-center scrollbar-thin">
+                <!-- Kartlar buraya lüks tasarımla dolacak -->
             </div>
         </div>
     </div>
 
-    <!-- JAVASCRIPT MOTORU -->
+    <!-- SCRIPT MOTORU -->
     <script>
         const socket = io();
         let currentRoom = "";
@@ -116,6 +116,7 @@
         }
         function startGame() { socket.emit('startGame', currentRoom); }
         function drawCard() { socket.emit('drawCard', currentRoom); }
+        function leaveRoom() { socket.emit('leaveRoom', currentRoom); }
 
         socket.on('roomCreated', (data) => {
             currentRoom = data.roomCode;
@@ -126,6 +127,7 @@
         });
 
         socket.on('playerJoined', (data) => { updateRoomMenu(data.players); });
+        socket.on('leftRoom', () => { switchScreen('lobbyScreen'); location.reload(); });
 
         function updateRoomMenu(players) {
             switchScreen('roomScreen');
@@ -134,17 +136,18 @@
             list.innerHTML = "";
             players.forEach(p => {
                 list.innerHTML += `<li class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between font-medium">
-                    <span><i class="fas fa-user text-slate-500 mr-2"></i>${p.name} ${p.id === socket.id ? '<span class="text-xs text-indigo-400">(Sen)</span>' : ''}</span>
+                    <span><i class="fas fa-user text-slate-400 mr-2"></i>${p.name} ${p.id === socket.id ? '<span class="text-xs text-indigo-400">(Sen)</span>' : ''}</span>
                     <span class="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-400 border border-purple-800/40 rounded-md font-bold">EFSANE</span>
                 </li>`;
             });
         }
 
-        // TAM OYUN DURUMU GÜNCELLEMESİ (Her hamlede tetiklenir)
         socket.on('gameStateUpdate', (data) => {
             switchScreen('gameScreen');
+            if(!data.pendingColorChange) {
+                document.getElementById('colorPicker').classList.add('hidden');
+            }
             
-            // Sıra kimde göstergesi
             const indicator = document.getElementById('turn-indicator');
             indicator.innerText = data.isMyTurn ? "SENİN SIRAN!" : data.currentTurnName;
             if(data.isMyTurn) {
@@ -157,31 +160,29 @@
                 document.getElementById('drawBtn').style.opacity = "0.4";
             }
 
-            // Ortadaki kartı güncelle
             const topCard = data.discardPile[data.discardPile.length - 1];
             if(topCard) {
                 const cardDiv = document.getElementById('last-card');
                 cardDiv.innerText = getCardSymbol(topCard.value);
-                cardDiv.className = `w-28 h-40 md:w-32 md:h-48 rounded-2xl border-4 border-white flex items-center justify-center text-3xl md:text-4xl font-black shadow-2xl transform rotate-2 select-none transition-all ${getColorClass(topCard.color)}`;
+                cardDiv.className = `w-32 h-48 rounded-2xl border-4 border-white flex items-center justify-center text-4xl font-black shadow-2xl transform rotate-2 select-none transition-all ${getColorClass(topCard.color)}`;
             }
 
-            // Rakiplerin elindeki kart sayılarını güncelle
             const oppsDiv = document.getElementById('opponents');
             oppsDiv.innerHTML = "";
             data.opponents.forEach(opp => {
-                oppsDiv.innerHTML += `<div class="text-xs bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 font-medium whitespace-nowrap">
-                    <i class="fas fa-user text-slate-400"></i> ${opp.name}: <span class="text-amber-400 font-bold">${opp.cardCount} Kart</span>
+                oppsDiv.innerHTML += `<div class="text-xs bg-slate-800 border border-slate-700 px-3 py-2 rounded-xl flex items-center gap-2 font-bold whitespace-nowrap shadow-inner">
+                    <i class="fas fa-user-shield text-indigo-400"></i> ${opp.name}: <span class="text-amber-400">${opp.cardCount} Kart</span>
                 </div>`;
             });
 
-            // Benim kartlarımı listele
             const handDiv = document.getElementById('my-hand');
             handDiv.innerHTML = "";
             data.myCards.forEach(card => {
-                let playable = data.isMyTurn && (card.color === topCard.color || card.value === topCard.value || card.color === 'black');
+                let playable = data.isMyTurn; 
                 
                 let btn = document.createElement('div');
-                btn.className = `w-16 h-26 min-w-[64px] md:w-20 md:h-32 md:min-w-[80px] rounded-xl border-2 flex items-center justify-center font-bold transition-all shadow-md select-none ${getColorClass(card.color)} ${playable ? 'cursor-pointer hover:-translate-y-6 hover:shadow-xl border-white' : 'opacity-40 border-slate-700 cursor-not-allowed'}`;
+                // BOYUTLAR BÜYÜTÜLDÜ VE SLOT UZATILDI: w-24 h-36 ile dikeyde ve yatayda lüks duruş sağlandı
+                btn.className = `w-24 h-36 min-w-[96px] rounded-2xl border-2 flex items-center justify-center text-3xl font-black transition-all shadow-lg select-none ${getColorClass(card.color)} ${playable ? 'cursor-pointer hover:-translate-y-8 hover:scale-105 hover:shadow-2xl border-white' : 'opacity-30 border-slate-800 cursor-not-allowed'}`;
                 btn.innerText = getCardSymbol(card.value);
                 
                 if(playable) {
@@ -190,6 +191,16 @@
                 handDiv.appendChild(btn);
             });
         });
+
+        // +4 veya Wild atıldığında sunucu sadece atan kişiye bu ekranı tetikler
+        socket.on('chooseColor', (data) => {
+            document.getElementById('colorPicker').classList.remove('hidden');
+        });
+
+        function selectColor(color) {
+            socket.emit('colorSelected', { roomCode: currentRoom, color: color });
+            document.getElementById('colorPicker').classList.add('hidden');
+        }
 
         socket.on('gameOver', (data) => {
             alert(`Oyun Bitti! Kazanan: ${data.winner}`);
@@ -207,8 +218,8 @@
             if(color === 'blue') return 'bg-blue-600 text-white';
             if(color === 'green') return 'bg-green-600 text-white';
             if(color === 'yellow') return 'bg-yellow-500 text-slate-900';
-            if(color === 'black') return 'bg-slate-950 border-amber-400 text-red-500';
-            return 'bg-red-600 text-white'; // Red
+            if(color === 'black') return 'bg-slate-950 border-amber-500 text-red-500';
+            return 'bg-red-600 text-white';
         }
 
         function getCardSymbol(val) {
