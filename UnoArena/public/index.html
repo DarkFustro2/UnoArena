@@ -13,20 +13,42 @@
         .active { display: flex; }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen font-sans flex flex-col justify-between select-none">
+<body class="text-slate-100 min-h-screen font-sans flex flex-col justify-between select-none relative overflow-hidden">
 
-    <!-- 1. LOBİ GİRİŞ EKRANI -->
-    <div id="lobbyScreen" class="screen active flex-col items-center justify-center my-auto px-6 text-center w-full max-w-4xl mx-auto">
+    <!-- PREMİUM PÜRÜZSÜZ HATA BİLDİRİM PANELİ -->
+    <div id="errorToast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-red-600/95 border border-red-500 backdrop-blur-md px-6 py-3 rounded-xl shadow-2xl text-white font-bold text-sm flex items-center gap-3 transition-all duration-300 translate-y-[-100px] opacity-0 z-[999]">
+        <i class="fas fa-exclamation-circle text-lg animate-pulse"></i>
+        <span id="errorToastMsg">Hata Mesajı</span>
+    </div>
+
+    <!-- 1. İLK GİRİŞ: İSİM SEÇME EKRANI -->
+    <div id="nameScreen" class="screen active flex-col items-center justify-center my-auto px-6 text-center w-full max-w-md mx-auto">
         <div class="flex items-center gap-3 mb-8">
             <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider">UNO</div>
             <span class="text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">ARENA</span>
         </div>
-        <h1 class="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md">
+            <h2 class="text-xl font-extrabold mb-4 text-slate-300">Arenalara Giriş Öncesi</h2>
+            <p class="text-xs text-slate-500 mb-6 font-medium">Lütfen oyunda görünecek ismini belirle abicim.</p>
+            <input type="text" id="usernameInput" maxlength="15" placeholder="Kullanıcı Adını Yaz..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3.5 text-center text-white tracking-wide font-bold focus:outline-none focus:border-indigo-500 mb-4 transition-all">
+            <button onclick="saveName()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-base px-6 py-3.5 rounded-xl shadow-xl transition transform active:scale-95">
+                Giriş Yap ve İlerle
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. LOBİ SEÇİM MENÜSÜ -->
+    <div id="lobbyScreen" class="screen flex-col items-center justify-center my-auto px-6 text-center w-full max-w-4xl mx-auto">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider">UNO</div>
+            <span class="text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">ARENA</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">
             Kartları Akıllıca Oyna, <br>
             <span class="bg-gradient-to-r from-purple-400 via-pink-500 to-amber-500 bg-clip-text text-transparent">Titan Unvanını Kazan!</span>
         </h1>
         <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 w-full max-w-md mx-auto shadow-2xl backdrop-blur-md">
-            <button onclick="createRoom()" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform hover:-translate-y-0.5 mb-6">
+            <button id="createRoomBtn" onclick="createRoom()" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform active:scale-95 mb-6">
                 <i class="fas fa-plus mr-2"></i> Yeni Oda Oluştur
             </button>
             <div class="flex items-center my-4">
@@ -36,12 +58,12 @@
             </div>
             <div class="flex gap-2">
                 <input type="text" id="roomInput" placeholder="Oda Kodu Gir" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-amber-400 uppercase tracking-widest font-bold focus:outline-none">
-                <button onclick="joinRoom()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl border border-slate-700 transition">Katıl</button>
+                <button id="joinRoomBtn" onclick="joinRoom()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl border border-slate-700 transition active:scale-95">Katıl</button>
             </div>
         </div>
     </div>
 
-    <!-- 2. BEKLEME SALONU -->
+    <!-- 3. BEKLEME SALONU -->
     <div id="roomScreen" class="screen flex-col items-center justify-center my-auto px-6 w-full max-w-md mx-auto text-center">
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md relative">
             <button onclick="leaveRoom()" class="absolute top-4 right-4 text-slate-500 hover:text-red-500 text-sm font-bold transition"><i class="fas fa-sign-out-alt"></i> Çık</button>
@@ -52,15 +74,13 @@
                 <span>Oyuncular</span><span id="playerCount" class="text-amber-500">0/4</span>
             </h3>
             <ul id="playerList" class="space-y-2 text-left mb-8"></ul>
-            <button id="startBtn" onclick="startGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl" style="display:none;">Oyunu Başlat (Host)</button>
+            <button id="startBtn" onclick="startGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition active:scale-95" style="display:none;">Oyunu Başlat (Host)</button>
             <p id="waitMsg" class="text-sm text-slate-400 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>Hostun oyunu başlatması bekleniyor...</p>
         </div>
     </div>
 
-    <!-- 3. CANLI OYUN ARENASI -->
+    <!-- 4. CANLI OYUN ARENASI -->
     <div id="gameScreen" class="screen flex-col justify-between h-screen w-full p-4 relative">
-        
-        <!-- ÜST BAR: RAKİPLER, SIRA VE ODADAN ÇIKMA -->
         <div class="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg z-10">
             <div id="opponents" class="flex gap-3 overflow-x-auto"></div>
             <div class="flex items-center gap-4">
@@ -71,12 +91,10 @@
             </div>
         </div>
 
-        <!-- ORTA ALAN: ORTAKİ KART VE RENK SEÇİM PANELİ -->
         <div class="flex flex-col items-center justify-center my-auto relative w-full">
             <p class="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Ortadaki Kart</p>
             <div id="last-card" class="w-32 h-48 rounded-2xl border-4 border-white flex items-center justify-center text-4xl font-black shadow-2xl transition-all duration-300"></div>
 
-            <!-- DİNAMİK RENK SEÇİM POPUP'I (+4 VEYA JOKER ATILDIĞINDA AÇILIR) -->
             <div id="colorPicker" class="absolute bg-slate-900/95 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 hidden z-50 animate-bounce">
                 <h3 class="text-sm font-black tracking-widest text-amber-400">UNO! RENGİNİ SEÇ</h3>
                 <div class="grid grid-cols-2 gap-3">
@@ -88,7 +106,6 @@
             </div>
         </div>
 
-        <!-- ALT ALAN: GENİŞLETİLMİŞ VE UZATILMIŞ SLOTLAR (SENİN ELİN) -->
         <div class="bg-slate-900/90 backdrop-blur-md p-6 rounded-2xl border border-slate-800 max-w-5xl mx-auto w-full shadow-2xl mb-2">
             <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
                 <span class="text-sm font-semibold text-slate-400 flex items-center gap-2">
@@ -96,11 +113,7 @@
                 </span>
                 <button id="drawBtn" onclick="drawCard()" class="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all">KART ÇEK (+1)</button>
             </div>
-            
-            <!-- DAHA BÜYÜK, DAHA DERİN VE UZUN KART SLOT ALANI -->
-            <div id="my-hand" class="flex gap-3 overflow-x-auto pb-4 pt-6 justify-start md:justify-center min-h-[200px] px-4 items-end items-center scrollbar-thin">
-                <!-- Kartlar buraya lüks tasarımla dolacak -->
-            </div>
+            <div id="my-hand" class="flex gap-3 overflow-x-auto pb-4 pt-6 justify-start md:justify-center min-h-[200px] px-4 items-end items-center"></div>
         </div>
     </div>
 
@@ -108,25 +121,55 @@
     <script>
         const socket = io();
         let currentRoom = "";
+        let myPlayerName = "";
 
-        function createRoom() { socket.emit('createRoom'); }
+        // İsim Kaydetme
+        function saveName() {
+            let input = document.getElementById('usernameInput').value.trim();
+            if(!input) {
+                showToast("Lütfen geçerli bir kullanıcı adı gir abicim!");
+                return;
+            }
+            myPlayerName = input;
+            switchScreen('lobbyScreen');
+        }
+
+        // Oda Kurma
+        function createRoom() { 
+            document.getElementById('createRoomBtn').disabled = true;
+            socket.emit('createRoom', { name: myPlayerName }); 
+        }
+
+        // Odaya Girme
         function joinRoom() {
             let code = document.getElementById('roomInput').value.trim().toUpperCase();
-            if(code) socket.emit('joinRoom', code);
+            if(!code) {
+                showToast("Lütfen bir oda kodu gir!");
+                return;
+            }
+            document.getElementById('joinRoomBtn').disabled = true;
+            socket.emit('joinRoom', { roomCode: code, name: myPlayerName });
         }
+
         function startGame() { socket.emit('startGame', currentRoom); }
         function drawCard() { socket.emit('drawCard', currentRoom); }
         function leaveRoom() { socket.emit('leaveRoom', currentRoom); }
 
+        // Sunucudan Geri Dönüşler
         socket.on('roomCreated', (data) => {
             currentRoom = data.roomCode;
             document.getElementById('displayCode').innerText = data.roomCode;
             document.getElementById('startBtn').style.display = "block";
             document.getElementById('waitMsg').style.display = "none";
+            document.getElementById('createRoomBtn').disabled = false;
             updateRoomMenu(data.players);
         });
 
-        socket.on('playerJoined', (data) => { updateRoomMenu(data.players); });
+        socket.on('playerJoined', (data) => { 
+            document.getElementById('joinRoomBtn').disabled = false;
+            updateRoomMenu(data.players); 
+        });
+
         socket.on('leftRoom', () => { switchScreen('lobbyScreen'); location.reload(); });
 
         function updateRoomMenu(players) {
@@ -135,8 +178,8 @@
             let list = document.getElementById('playerList');
             list.innerHTML = "";
             players.forEach(p => {
-                list.innerHTML += `<li class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between font-medium">
-                    <span><i class="fas fa-user text-slate-400 mr-2"></i>${p.name} ${p.id === socket.id ? '<span class="text-xs text-indigo-400">(Sen)</span>' : ''}</span>
+                list.innerHTML += `<li class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between font-medium animate-fade-in">
+                    <span><i class="fas fa-user text-slate-400 mr-2"></i>${p.name}</span>
                     <span class="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-400 border border-purple-800/40 rounded-md font-bold">EFSANE</span>
                 </li>`;
             });
@@ -151,11 +194,11 @@
             const indicator = document.getElementById('turn-indicator');
             indicator.innerText = data.isMyTurn ? "SENİN SIRAN!" : data.currentTurnName;
             if(data.isMyTurn) {
-                indicator.className = "text-green-400 animate-pulse font-black";
+                indicator.className = "text-green-400 animate-pulse font-black text-sm";
                 document.getElementById('drawBtn').disabled = false;
                 document.getElementById('drawBtn').style.opacity = "1";
             } else {
-                indicator.className = "text-white font-medium";
+                indicator.className = "text-white font-medium text-xs";
                 document.getElementById('drawBtn').disabled = true;
                 document.getElementById('drawBtn').style.opacity = "0.4";
             }
@@ -181,7 +224,6 @@
                 let playable = data.isMyTurn; 
                 
                 let btn = document.createElement('div');
-                // BOYUTLAR BÜYÜTÜLDÜ VE SLOT UZATILDI: w-24 h-36 ile dikeyde ve yatayda lüks duruş sağlandı
                 btn.className = `w-24 h-36 min-w-[96px] rounded-2xl border-2 flex items-center justify-center text-3xl font-black transition-all shadow-lg select-none ${getColorClass(card.color)} ${playable ? 'cursor-pointer hover:-translate-y-8 hover:scale-105 hover:shadow-2xl border-white' : 'opacity-30 border-slate-800 cursor-not-allowed'}`;
                 btn.innerText = getCardSymbol(card.value);
                 
@@ -192,7 +234,6 @@
             });
         });
 
-        // +4 veya Wild atıldığında sunucu sadece atan kişiye bu ekranı tetikler
         socket.on('chooseColor', (data) => {
             document.getElementById('colorPicker').classList.remove('hidden');
         });
@@ -202,12 +243,28 @@
             document.getElementById('colorPicker').classList.add('hidden');
         }
 
+        // GELİŞMİŞ PREMIUM HATA PANELİ MOTORU
+        socket.on('errorMsg', (msg) => { 
+            document.getElementById('joinRoomBtn').disabled = false;
+            document.getElementById('createRoomBtn').disabled = false;
+            showToast(msg);
+        });
+
+        function showToast(text) {
+            const toast = document.getElementById('errorToast');
+            document.getElementById('errorToastMsg').innerText = text;
+            toast.style.transform = "translate(-50%, 0)";
+            toast.style.opacity = "1";
+            setTimeout(() => {
+                toast.style.transform = "translate(-50%, -100px)";
+                toast.style.opacity = "0";
+            }, 3500);
+        }
+
         socket.on('gameOver', (data) => {
             alert(`Oyun Bitti! Kazanan: ${data.winner}`);
             location.reload();
         });
-
-        socket.on('errorMsg', (msg) => { alert(msg); });
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
