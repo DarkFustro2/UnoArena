@@ -27,11 +27,14 @@ function createDeck() {
 
 io.on('connection', (socket) => {
     
-    socket.on('createRoom', () => {
+    // 1. Oda Oluşturma
+    socket.on('createRoom', (data) => {
         let roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+        let playerName = data && data.name ? data.name.trim() : "Oyuncu 1";
+        
         rooms[roomCode] = {
             host: socket.id,
-            players: [{ id: socket.id, name: "Host (Oyuncu 1)", cards: [] }],
+            players: [{ id: socket.id, name: playerName + " (Host)", cards: [] }],
             started: false,
             deck: [],
             discardPile: [],
@@ -43,29 +46,34 @@ io.on('connection', (socket) => {
         socket.emit('roomCreated', { roomCode, players: rooms[roomCode].players });
     });
 
-    socket.on('joinRoom', (roomCode) => {
-        roomCode = roomCode.toUpperCase();
-        if (rooms[roomCode]) {
-            if (rooms[roomCode].players.length >= 4) {
-                return socket.emit('errorMsg', 'Oda dolu! (Maks 4 kişi)');
-            }
-            if (rooms[roomCode].started) {
-                return socket.emit('errorMsg', 'Oyun zaten başladı!');
-            }
-            
-            let pNumber = rooms[roomCode].players.length + 1;
-            rooms[roomCode].players.push({ id: socket.id, name: "Oyuncu " + pNumber, cards: [] });
-            socket.join(roomCode);
-            
-            io.to(roomCode).emit('playerJoined', { players: rooms[roomCode].players });
-        } else {
-            socket.emit('errorMsg', 'Oda bulunamadı!');
+    // 2. Odaya Katılma
+    socket.on('joinRoom', (data) => {
+        let roomCode = data.roomCode ? data.roomCode.trim().toUpperCase() : "";
+        let playerName = data.name ? data.name.trim() : "Oyuncu";
+
+        if (!roomCode || !rooms[roomCode]) {
+            return socket.emit('errorMsg', 'Oda bulunamadı veya kod yanlış!');
         }
+        if (rooms[roomCode].players.length >= 4) {
+            return socket.emit('errorMsg', 'Oda dolu! (Maksimum 4 kişi)');
+        }
+        if (rooms[roomCode].started) {
+            return socket.emit('errorMsg', 'Bu oda için oyun zaten başladı!');
+        }
+        
+        rooms[roomCode].players.push({ id: socket.id, name: playerName, cards: [] });
+        socket.join(roomCode);
+        
+        io.to(roomCode).emit('playerJoined', { players: rooms[roomCode].players });
     });
 
+    // 3. Oyunu Başlatma
     socket.on('startGame', (roomCode) => {
         let room = rooms[roomCode];
         if (room && room.host === socket.id) {
+            if(room.players.length < 2) {
+                return socket.emit('errorMsg', 'Oyunu başlatmak için en az 2 oyuncu gerekiyor!');
+            }
             room.started = true;
             room.deck = createDeck();
             
@@ -82,12 +90,13 @@ io.on('connection', (socket) => {
                 firstCard = room.deck.pop();
             }
             room.discardPile.push(firstCard);
-            room.currentTurn = 0; // Her zaman oyuna Host (1. Oyuncu) başlar.
+            room.currentTurn = 0; 
 
             sendStateToAll(roomCode);
         }
     });
 
+    // 4. Kart Atma
     socket.on('playCard', (data) => {
         let room = rooms[data.roomCode];
         if (!room || !room.started || room.pendingColorChange) return;
@@ -115,43 +124,39 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // Renk Seçimi Gerektiren Joker Durumu (+4 veya Wild)
             if (playedCard.color === 'black') {
                 room.pendingColorChange = true;
                 socket.emit('chooseColor', { value: playedCard.value });
                 return; 
             }
 
-            // Normal Kart Aksiyonları
             processCardAction(room, playedCard);
             sendStateToAll(data.roomCode);
         }
     });
 
-    // Jokerden sonra renk seçildiğinde tetiklenen mekanizma
+    // Renk Seçimi Sonrası
     socket.on('colorSelected', (data) => {
         let room = rooms[data.roomCode];
         if (!room || !room.pendingColorChange) return;
 
         let topCard = room.discardPile[room.discardPile.length - 1];
-        topCard.color = data.color; // Ortadaki kartın rengini oyuncunun seçtiği renk yapıyoruz
+        topCard.color = data.color; 
         room.pendingColorChange = false;
 
-        // Eğer atılan kart +4 ise bir sonraki oyuncuya ceza kes
         if (topCard.value === '+4') {
             let nextTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
             let victim = room.players[nextTurn];
             for(let i=0; i<4; i++) if(room.deck.length > 0) victim.cards.push(room.deck.pop());
-            // Cezayı alan kişinin sırası yanar (pas geçer)
             room.currentTurn = (nextTurn + room.direction + room.players.length) % room.players.length;
         } else {
-            // Normal Wild (Renk Değiştirme) ise sadece sırayı normal geçir
             room.currentTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
         }
 
         sendStateToAll(data.roomCode);
     });
 
+    // Kart Çekme
     socket.on('drawCard', (roomCode) => {
         let room = rooms[roomCode];
         if (!room || !room.started || room.pendingColorChange) return;
@@ -173,6 +178,7 @@ io.on('connection', (socket) => {
         sendStateToAll(roomCode);
     });
 
+    // Odadan Çıkma
     socket.on('leaveRoom', (roomCode) => {
         if(rooms[roomCode]) {
             rooms[roomCode].players = rooms[roomCode].players.filter(p => p.id !== socket.id);
@@ -205,7 +211,6 @@ function processCardAction(room, playedCard) {
     if (playedCard.value === 'Reverse') {
         room.direction *= -1;
     }
-    
     let nextTurn = (room.currentTurn + room.direction + room.players.length) % room.players.length;
 
     if (playedCard.value === 'Skip') {
@@ -215,7 +220,6 @@ function processCardAction(room, playedCard) {
         for(let i=0; i<2; i++) if(room.deck.length > 0) victim.cards.push(room.deck.pop());
         nextTurn = (nextTurn + room.direction + room.players.length) % room.players.length;
     }
-
     room.currentTurn = nextTurn;
 }
 
@@ -240,4 +244,4 @@ function sendStateToAll(roomCode) {
 }
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
+http.listen(PORT, () => console.log(`Sunucu aktif.`));
