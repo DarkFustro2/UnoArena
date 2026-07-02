@@ -3,286 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNO Arena - Premium</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Uno Arena</title>
     <style>
-        body { background: radial-gradient(circle at center, #1e1b4b, #0f172a); }
-        .screen { display: none; }
-        .active { display: flex; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a24; color: #f5f5f7; text-align: center; margin: 0; padding: 20px; }
+        h1 { margin-bottom: 5px; color: #ff7675; text-transform: uppercase; letter-spacing: 2px; }
+        .screen { display: none; max-width: 600px; margin: 40px auto; padding: 30px; background: #242432; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .active { display: block; }
+        
+        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; font-size: 16px; }
+        input { background: #323248; color: white; border: 1px solid #444; }
+        button { background: #0984e3; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #74b9ff; }
+        button:disabled { background: #444 !important; cursor: not-allowed; opacity: 0.5; }
+        
+        .card { display: inline-block; width: 85px; height: 130px; border-radius: 10px; margin: 8px; line-height: 130px; font-weight: bold; font-size: 18px; cursor: pointer; color: white; border: 3px solid white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-10px); }
+        .red { background: linear-gradient(135deg, #ff7675, #d63031); }
+        .blue { background: linear-gradient(135deg, #74b9ff, #0984e3); }
+        .green { background: linear-gradient(135deg, #55efc4, #00b894); }
+        .yellow { background: linear-gradient(135deg, #ffeaa7, #fdcb6e); color: #2d3436; text-shadow: none; }
+        .black { background: linear-gradient(135deg, #636e72, #2d3436); }
+        .disabled { pointer-events: none !important; opacity: 0.4; transform: none !important; }
+        
+        #colorPicker { display: none; margin: 20px padding: 15px; background: #2d2d3f; border-radius: 8px; }
+        .color-row { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
+        .color-btn { width: 50px; height: 50px; cursor: pointer; border-radius: 50%; border: 2px solid white; }
+        
+        .game-layout { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .pile-container { display: flex; justify-content: center; align-items: center; gap: 40px; margin: 20px 0; }
+        .opponents-box { background: #2d2d3f; padding: 15px; border-radius: 8px; width: 100%; margin-bottom: 15px; }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen font-sans flex flex-col justify-between select-none relative overflow-hidden">
+<body>
 
-    <!-- PREMİUM PÜRÜZSÜZ HATA BİLDİRİM PANELİ -->
-    <div id="errorToast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-red-600/95 border border-red-500 backdrop-blur-md px-6 py-3 rounded-xl shadow-2xl text-white font-bold text-sm flex items-center gap-3 transition-all duration-300 translate-y-[-100px] opacity-0 z-[999]">
-        <i class="fas fa-exclamation-circle text-lg animate-pulse"></i>
-        <span id="errorToastMsg">Hata Mesajı</span>
+    <h1>🃏 Uno Arena 🃏</h1>
+
+    <div id="lobbyScreen" class="screen active">
+        <input type="text" id="playerName" placeholder="Oyuncu Adın..." required>
+        <button onclick="createRoom()" style="background: #20bf6b;">Oda Oluştur (Host)</button>
+        <div style="margin: 15px 0; color: #888;">- VEYA -</div>
+        <input type="text" id="roomCodeInput" placeholder="Oda Kodu Gir...">
+        <button onclick="joinRoom()">Odaya Katıl</button>
     </div>
 
-    <!-- 1. İLK GİRİŞ: İSİM SEÇME EKRANI -->
-    <div id="nameScreen" class="screen active flex-col items-center justify-center my-auto px-6 text-center w-full max-w-md mx-auto">
-        <div class="flex items-center gap-3 mb-8">
-            <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider">UNO</div>
-            <span class="text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">ARENA</span>
+    <div id="waitingScreen" class="screen">
+        <h2>Oda Kodu: <span id="displayRoomCode" style="color: #fdcb6e;"></span></h2>
+        <div class="opponents-box">
+            <h3>Bağlı Oyuncular:</h3>
+            <ul id="playerList" style="list-style: none; padding: 0; font-size: 18px; line-height: 2;"></ul>
         </div>
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md">
-            <h2 class="text-xl font-extrabold mb-4 text-slate-300">Arenalara Giriş Öncesi</h2>
-            <p class="text-xs text-slate-500 mb-6 font-medium">Lütfen oyunda görünecek ismini belirle abicim.</p>
-            <input type="text" id="usernameInput" maxlength="15" placeholder="Kullanıcı Adını Yaz..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3.5 text-center text-white tracking-wide font-bold focus:outline-none focus:border-indigo-500 mb-4 transition-all">
-            <button onclick="saveName()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-base px-6 py-3.5 rounded-xl shadow-xl transition transform active:scale-95">
-                Giriş Yap ve İlerle
-            </button>
-        </div>
+        <button id="startBtn" style="display:none; background: #6c5ce7;" onclick="startGame()">Oyunu Başlat</button>
+        <p id="waitingNotice" style="color: #aaa;">Hostun oyunu başlatması bekleniyor...</p>
     </div>
 
-    <!-- 2. LOBİ SEÇİM MENÜSÜ -->
-    <div id="lobbyScreen" class="screen flex-col items-center justify-center my-auto px-6 text-center w-full max-w-4xl mx-auto">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="bg-red-600 text-white font-black px-4 py-2 rounded-md transform -rotate-6 shadow-lg text-2xl tracking-wider">UNO</div>
-            <span class="text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">ARENA</span>
-        </div>
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">
-            Kartları Akıllıca Oyna, <br>
-            <span class="bg-gradient-to-r from-purple-400 via-pink-500 to-amber-500 bg-clip-text text-transparent">Titan Unvanını Kazan!</span>
-        </h1>
-        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 w-full max-w-md mx-auto shadow-2xl backdrop-blur-md">
-            <button id="createRoomBtn" onclick="createRoom()" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition transform active:scale-95 mb-6">
-                <i class="fas fa-plus mr-2"></i> Yeni Oda Oluştur
-            </button>
-            <div class="flex items-center my-4">
-                <div class="flex-grow h-px bg-slate-800"></div>
-                <span class="px-3 text-xs text-slate-500 font-bold">VEYA</span>
-                <div class="flex-grow h-px bg-slate-800"></div>
+    <div id="gameScreen" class="screen" style="max-width: 800px;">
+        <div class="opponents-box" id="opponents"></div>
+        
+        <h2 id="turnStatus">Yükleniyor...</h2>
+        
+        <div class="pile-container">
+            <div>
+                <p>Yerdeki Kart</p>
+                <div id="topCard"></div>
             </div>
-            <div class="flex gap-2">
-                <input type="text" id="roomInput" placeholder="Oda Kodu Gir" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-amber-400 uppercase tracking-widest font-bold focus:outline-none">
-                <button id="joinRoomBtn" onclick="joinRoom()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-xl border border-slate-700 transition active:scale-95">Katıl</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. BEKLEME SALONU -->
-    <div id="roomScreen" class="screen flex-col items-center justify-center my-auto px-6 w-full max-w-md mx-auto text-center">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 w-full shadow-2xl backdrop-blur-md relative">
-            <button onclick="leaveRoom()" class="absolute top-4 right-4 text-slate-500 hover:text-red-500 text-sm font-bold transition"><i class="fas fa-sign-out-alt"></i> Çık</button>
-            <p class="text-xs text-slate-500 font-bold uppercase mb-1">Oda Kodu</p>
-            <h2 class="text-4xl font-black text-amber-400 tracking-widest mb-6" id="displayCode">-</h2>
-            <div class="h-px bg-slate-800 my-4"></div>
-            <h3 class="text-sm font-semibold text-slate-400 mb-3 text-left flex justify-between">
-                <span>Oyuncular</span><span id="playerCount" class="text-amber-500">0/4</span>
-            </h3>
-            <ul id="playerList" class="space-y-2 text-left mb-8"></ul>
-            <button id="startBtn" onclick="startGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold text-lg px-6 py-3.5 rounded-xl shadow-xl transition active:scale-95" style="display:none;">Oyunu Başlat (Host)</button>
-            <p id="waitMsg" class="text-sm text-slate-400 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>Hostun oyunu başlatması bekleniyor...</p>
-        </div>
-    </div>
-
-    <!-- 4. CANLI OYUN ARENASI -->
-    <div id="gameScreen" class="screen flex-col justify-between h-screen w-full p-4 relative">
-        <div class="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg z-10">
-            <div id="opponents" class="flex gap-3 overflow-x-auto"></div>
-            <div class="flex items-center gap-4">
-                <div class="text-amber-400 font-bold tracking-wider text-xs md:text-sm bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                    SIRA: <span id="turn-indicator" class="text-white">...</span>
-                </div>
-                <button onclick="leaveRoom()" class="bg-red-950 hover:bg-red-800 text-red-400 border border-red-900 px-3 py-1.5 rounded-lg text-xs font-bold transition"><i class="fas fa-door-open"></i> Çık</button>
+            <div>
+                <p>Deste</p>
+                <button id="drawCardBtn" onclick="drawCard()" style="height: 130px; width: 90px; border-radius: 10px; background: #e84393;">Kart Çek</button>
             </div>
         </div>
 
-        <div class="flex flex-col items-center justify-center my-auto relative w-full">
-            <p class="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Ortadaki Kart</p>
-            <div id="last-card" class="w-32 h-48 rounded-2xl border-4 border-white flex items-center justify-center text-4xl font-black shadow-2xl transition-all duration-300"></div>
-
-            <div id="colorPicker" class="absolute bg-slate-900/95 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 hidden z-50 animate-bounce">
-                <h3 class="text-sm font-black tracking-widest text-amber-400">UNO! RENGİNİ SEÇ</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="selectColor('red')" class="w-16 h-16 bg-red-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
-                    <button onclick="selectColor('blue')" class="w-16 h-16 bg-blue-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
-                    <button onclick="selectColor('green')" class="w-16 h-16 bg-green-600 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
-                    <button onclick="selectColor('yellow')" class="w-16 h-16 bg-yellow-500 rounded-xl border-2 border-white hover:scale-110 transition shadow-md"></button>
-                </div>
+        <div id="colorPicker">
+            <h3>Büyülü Kart! Bir Renk Seç:</h3>
+            <div class="color-row">
+                <div class="color-btn red" onclick="selectColor('red')"></div>
+                <div class="color-btn blue" onclick="selectColor('blue')"></div>
+                <div class="color-btn green" onclick="selectColor('green')"></div>
+                <div class="color-btn yellow" onclick="selectColor('yellow')"></div>
             </div>
         </div>
 
-        <div class="bg-slate-900/90 backdrop-blur-md p-6 rounded-2xl border border-slate-800 max-w-5xl mx-auto w-full shadow-2xl mb-2">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
-                <span class="text-sm font-semibold text-slate-400 flex items-center gap-2">
-                    <i class="fas fa-id-badge text-indigo-500"></i> Senin Elin <span class="text-xs bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full font-bold">Efsane Lig</span>
-                </span>
-                <button id="drawBtn" onclick="drawCard()" class="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all">KART ÇEK (+1)</button>
-            </div>
-            <div id="my-hand" class="flex gap-3 overflow-x-auto pb-4 pt-6 justify-start md:justify-center min-h-[200px] px-4 items-end items-center"></div>
-        </div>
+        <h3>Senin Kartların:</h3>
+        <div id="myCards"></div>
     </div>
 
-    <!-- SCRIPT MOTORU -->
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let currentRoom = "";
-        let myPlayerName = "";
+        let currentRoomCode = "";
 
-        // İsim Kaydetme
-        function saveName() {
-            let input = document.getElementById('usernameInput').value.trim();
-            if(!input) {
-                showToast("Lütfen geçerli bir kullanıcı adı gir abicim!");
-                return;
-            }
-            myPlayerName = input;
-            switchScreen('lobbyScreen');
+        function createRoom() {
+            const name = document.getElementById('playerName').value.trim();
+            if(!name) return alert("Lütfen bir isim gir!");
+            socket.emit('createRoom', { name });
         }
 
-        // Oda Kurma
-        function createRoom() { 
-            document.getElementById('createRoomBtn').disabled = true;
-            socket.emit('createRoom', { name: myPlayerName }); 
-        }
-
-        // Odaya Girme
         function joinRoom() {
-            let code = document.getElementById('roomInput').value.trim().toUpperCase();
-            if(!code) {
-                showToast("Lütfen bir oda kodu gir!");
-                return;
-            }
-            document.getElementById('joinRoomBtn').disabled = true;
-            socket.emit('joinRoom', { roomCode: code, name: myPlayerName });
+            const name = document.getElementById('playerName').value.trim();
+            const roomCode = document.getElementById('roomCodeInput').value.trim();
+            if(!name || !roomCode) return alert("İsim ve Oda Kodu girmelisin!");
+            socket.emit('joinRoom', { name, roomCode });
         }
 
-        function startGame() { socket.emit('startGame', currentRoom); }
-        function drawCard() { socket.emit('drawCard', currentRoom); }
-        function leaveRoom() { socket.emit('leaveRoom', currentRoom); }
-
-        // Sunucudan Geri Dönüşler
-        socket.on('roomCreated', (data) => {
-            currentRoom = data.roomCode;
-            document.getElementById('displayCode').innerText = data.roomCode;
-            document.getElementById('startBtn').style.display = "block";
-            document.getElementById('waitMsg').style.display = "none";
-            document.getElementById('createRoomBtn').disabled = false;
-            updateRoomMenu(data.players);
-        });
-
-        socket.on('playerJoined', (data) => { 
-            document.getElementById('joinRoomBtn').disabled = false;
-            updateRoomMenu(data.players); 
-        });
-
-        socket.on('leftRoom', () => { switchScreen('lobbyScreen'); location.reload(); });
-
-        function updateRoomMenu(players) {
-            switchScreen('roomScreen');
-            document.getElementById('playerCount').innerText = players.length + "/4";
-            let list = document.getElementById('playerList');
-            list.innerHTML = "";
-            players.forEach(p => {
-                list.innerHTML += `<li class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between font-medium animate-fade-in">
-                    <span><i class="fas fa-user text-slate-400 mr-2"></i>${p.name}</span>
-                    <span class="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-400 border border-purple-800/40 rounded-md font-bold">EFSANE</span>
-                </li>`;
-            });
+        function startGame() {
+            socket.emit('startGame', currentRoomCode);
         }
 
-        socket.on('gameStateUpdate', (data) => {
-            switchScreen('gameScreen');
-            if(!data.pendingColorChange) {
-                document.getElementById('colorPicker').classList.add('hidden');
-            }
-            
-            const indicator = document.getElementById('turn-indicator');
-            indicator.innerText = data.isMyTurn ? "SENİN SIRAN!" : data.currentTurnName;
-            if(data.isMyTurn) {
-                indicator.className = "text-green-400 animate-pulse font-black text-sm";
-                document.getElementById('drawBtn').disabled = false;
-                document.getElementById('drawBtn').style.opacity = "1";
-            } else {
-                indicator.className = "text-white font-medium text-xs";
-                document.getElementById('drawBtn').disabled = true;
-                document.getElementById('drawBtn').style.opacity = "0.4";
-            }
-
-            const topCard = data.discardPile[data.discardPile.length - 1];
-            if(topCard) {
-                const cardDiv = document.getElementById('last-card');
-                cardDiv.innerText = getCardSymbol(topCard.value);
-                cardDiv.className = `w-32 h-48 rounded-2xl border-4 border-white flex items-center justify-center text-4xl font-black shadow-2xl transform rotate-2 select-none transition-all ${getColorClass(topCard.color)}`;
-            }
-
-            const oppsDiv = document.getElementById('opponents');
-            oppsDiv.innerHTML = "";
-            data.opponents.forEach(opp => {
-                oppsDiv.innerHTML += `<div class="text-xs bg-slate-800 border border-slate-700 px-3 py-2 rounded-xl flex items-center gap-2 font-bold whitespace-nowrap shadow-inner">
-                    <i class="fas fa-user-shield text-indigo-400"></i> ${opp.name}: <span class="text-amber-400">${opp.cardCount} Kart</span>
-                </div>`;
-            });
-
-            const handDiv = document.getElementById('my-hand');
-            handDiv.innerHTML = "";
-            data.myCards.forEach(card => {
-                let playable = data.isMyTurn; 
-                
-                let btn = document.createElement('div');
-                btn.className = `w-24 h-36 min-w-[96px] rounded-2xl border-2 flex items-center justify-center text-3xl font-black transition-all shadow-lg select-none ${getColorClass(card.color)} ${playable ? 'cursor-pointer hover:-translate-y-8 hover:scale-105 hover:shadow-2xl border-white' : 'opacity-30 border-slate-800 cursor-not-allowed'}`;
-                btn.innerText = getCardSymbol(card.value);
-                
-                if(playable) {
-                    btn.onclick = () => { socket.emit('playCard', { roomCode: currentRoom, card: card }); };
-                }
-                handDiv.appendChild(btn);
-            });
-        });
-
-        socket.on('chooseColor', (data) => {
-            document.getElementById('colorPicker').classList.remove('hidden');
-        });
+        function drawCard() {
+            socket.emit('drawCard', currentRoomCode);
+        }
 
         function selectColor(color) {
-            socket.emit('colorSelected', { roomCode: currentRoom, color: color });
-            document.getElementById('colorPicker').classList.add('hidden');
+            socket.emit('colorSelected', { roomCode: currentRoomCode, color: color });
+            document.getElementById('colorPicker').style.display = 'none';
         }
 
-        // GELİŞMİŞ PREMIUM HATA PANELİ MOTORU
-        socket.on('errorMsg', (msg) => { 
-            document.getElementById('joinRoomBtn').disabled = false;
-            document.getElementById('createRoomBtn').disabled = false;
-            showToast(msg);
+        // --- SUNUCUDAN GELEN EVENTLER ---
+        socket.on('roomCreated', (data) => {
+            currentRoomCode = data.roomCode;
+            document.getElementById('displayRoomCode').innerText = data.roomCode;
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('waitingNotice').style.display = 'none';
+            showScreen('waitingScreen');
+            updatePlayerList(data.players);
         });
 
-        function showToast(text) {
-            const toast = document.getElementById('errorToast');
-            document.getElementById('errorToastMsg').innerText = text;
-            toast.style.transform = "translate(-50%, 0)";
-            toast.style.opacity = "1";
-            setTimeout(() => {
-                toast.style.transform = "translate(-50%, -100px)";
-                toast.style.opacity = "0";
-            }, 3500);
-        }
+        socket.on('playerJoined', (data) => {
+            showScreen('waitingScreen');
+            updatePlayerList(data.players);
+        });
+
+        socket.on('gameStateUpdate', (state) => {
+            showScreen('gameScreen');
+            
+            const turnStatus = document.getElementById('turnStatus');
+            const drawBtn = document.getElementById('drawCardBtn');
+            
+            // Sıra ve Kilit Kontrolleri
+            if (state.pendingColorChange) {
+                turnStatus.innerHTML = `🎨 Renk seçimi bekleniyor...`;
+                drawBtn.disabled = true;
+                
+                // Renk seçecek kişi bu socket mi?
+                if (state.isMyTurn && socket.id === state.activeColorChooserId) {
+                    document.getElementById('colorPicker').style.display = 'block';
+                } else {
+                    document.getElementById('colorPicker').style.display = 'none';
+                }
+            } else {
+                document.getElementById('colorPicker').style.display = 'none';
+                if (state.isMyTurn) {
+                    turnStatus.innerHTML = "<span style='color:#55efc4;'>🟢 SIRA SENDE!</span>";
+                    drawBtn.disabled = false;
+                } else {
+                    turnStatus.innerHTML = `🟡 Sıra: <span style='color:#ffeaa7;'>${state.currentTurnName}</span>`;
+                    drawBtn.disabled = true;
+                }
+            }
+
+            // Ortadaki Son Kartı Çizdirme
+            const top = state.discardPile[state.discardPile.length - 1];
+            const topCardDiv = document.getElementById('topCard');
+            topCardDiv.className = `card ${top.color}`;
+            topCardDiv.innerText = top.value;
+
+            // Kendi Kartlarımı Senkronize Etme (Sıra bende değilse veya renk seçiliyorsa tıklanamaz yap)
+            const myCardsDiv = document.getElementById('myCards');
+            myCardsDiv.innerHTML = "";
+            state.myCards.forEach(card => {
+                const cardEl = document.createElement('div');
+                const isClickable = state.isMyTurn && !state.pendingColorChange;
+                cardEl.className = `card ${card.color} ${!isClickable ? 'disabled' : ''}`;
+                cardEl.innerText = card.value;
+                cardEl.onclick = () => {
+                    if (isClickable) {
+                        socket.emit('playCard', { roomCode: currentRoomCode, card: card });
+                    }
+                };
+                myCardsDiv.appendChild(cardEl);
+            });
+
+            // Rakipler paneli
+            const opponentsDiv = document.getElementById('opponents');
+            opponentsDiv.innerHTML = "<h3>Rakiplerin Kart Durumları</h3>";
+            state.opponents.forEach(opp => {
+                opponentsDiv.innerHTML += `<span>• <b>${opp.name}:</b> ${opp.cardCount} Kart &nbsp;&nbsp;&nbsp;&nbsp;</span>`;
+            });
+        });
 
         socket.on('gameOver', (data) => {
-            alert(`Oyun Bitti! Kazanan: ${data.winner}`);
+            alert(`🎉 Oyun Bitti! Kazanan Muhteşem Oyuncu: ${data.winner}`);
             location.reload();
         });
 
-        function switchScreen(screenId) {
+        socket.on('errorMsg', (msg) => {
+            alert(msg);
+        });
+
+        function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
         }
 
-        function getColorClass(color) {
-            if(color === 'blue') return 'bg-blue-600 text-white';
-            if(color === 'green') return 'bg-green-600 text-white';
-            if(color === 'yellow') return 'bg-yellow-500 text-slate-900';
-            if(color === 'black') return 'bg-slate-950 border-amber-500 text-red-500';
-            return 'bg-red-600 text-white';
-        }
-
-        function getCardSymbol(val) {
-            if(val === 'Reverse') return '🔄';
-            if(val === 'Skip') return '🚫';
-            return val;
+        function updatePlayerList(players) {
+            const list = document.getElementById('playerList');
+            list.innerHTML = "";
+            players.forEach(p => {
+                list.innerHTML += `<li>⚡ ${p.name}</li>`;
+            });
         }
     </script>
 </body>
